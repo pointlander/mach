@@ -5,6 +5,7 @@
 package main
 
 import (
+	"flag"
 	"image"
 	"image/color"
 	"image/color/palette"
@@ -20,12 +21,23 @@ import (
 	"gonum.org/v1/plot/vg/vgimg"
 )
 
+var (
+	// FlagMin minimize entropy
+	FlagMin = flag.Bool("min", false, "minimize entropy")
+	// FlagMax maximize entropy
+	FlagMax = flag.Bool("max", false, "maximize entropy")
+	// FlagConstance constant entropy
+	FlagConstance = flag.Bool("const", false, "constant entropy")
+)
+
 // Particle is a particle
 type Particle struct {
 	X, Y float64
 }
 
 func main() {
+	flag.Parse()
+
 	particles := []Particle{
 		{X: 0, Y: 0},
 		{X: 128, Y: 0},
@@ -44,26 +56,66 @@ func main() {
 		embedding := SelfEntropy(units, units, units)
 		return embedding
 	}
-	images := make([]*image.Paletted, 100)
-	for s := 0; s < 100; s++ {
+	const epochs = 256
+	images := make([]*image.Paletted, epochs)
+	for s := 0; s < epochs; s++ {
 		points := make(plotter.XYs, 0, len(particles))
-		for i := range particles {
-			particle, min, x, y := particles[i], math.MaxFloat64, 0.0, 0.0
-			for j := -1; j <= 1; j++ {
-				for k := -1; k <= 1; k++ {
-					particles[i].X += float64(j)
-					particles[i].Y += float64(k)
-					entropy := getEntropy()
-					if e := -entropy[i]; e < min {
-						min, x, y = e, particles[i].X, particles[i].Y
+		if *FlagMin || (!*FlagMax && !*FlagConstance) {
+			for i := range particles {
+				particle, min := particles[i], math.MaxFloat64
+				x, y := particle.X, particle.Y
+				for j := -1; j <= 1; j++ {
+					for k := -1; k <= 1; k++ {
+						particles[i].X += float64(j)
+						particles[i].Y += float64(k)
+						entropy := getEntropy()
+						if e := -entropy[i]; e < min {
+							min, x, y = e, particles[i].X, particles[i].Y
+						}
+						particles[i] = particle
 					}
-					particles[i] = particle
 				}
+				particles[i].X, particles[i].Y = x, y
+				points = append(points, plotter.XY{X: x, Y: y})
 			}
-			particles[i].X, particles[i].Y = x, y
-			points = append(points, plotter.XY{X: x, Y: y})
+		} else if *FlagMax {
+			for i := range particles {
+				particle, max := particles[i], -math.MaxFloat64
+				x, y := particle.X, particle.Y
+				for j := -1; j <= 1; j++ {
+					for k := -1; k <= 1; k++ {
+						particles[i].X += float64(j)
+						particles[i].Y += float64(k)
+						entropy := getEntropy()
+						if e := -entropy[i]; e > max {
+							max, x, y = e, particles[i].X, particles[i].Y
+						}
+						particles[i] = particle
+					}
+				}
+				particles[i].X, particles[i].Y = x, y
+				points = append(points, plotter.XY{X: x, Y: y})
+			}
+		} else if *FlagConstance {
+			for i := range particles {
+				original := getEntropy()
+				particle, min := particles[i], math.MaxFloat64
+				x, y := particle.X, particle.Y
+				for j := -1; j <= 1; j++ {
+					for k := -1; k <= 1; k++ {
+						particles[i].X += float64(j)
+						particles[i].Y += float64(k)
+						entropy := getEntropy()
+						if e := math.Abs(-entropy[i] - -original[i]); e < min {
+							min, x, y = e, particles[i].X, particles[i].Y
+						}
+						particles[i] = particle
+					}
+				}
+				particles[i].X, particles[i].Y = x, y
+				points = append(points, plotter.XY{X: x, Y: y})
+			}
 		}
-
 		p := plot.New()
 
 		p.Title.Text = "x vs y"
@@ -102,7 +154,15 @@ func main() {
 		animation.Delay = append(animation.Delay, 0)
 	}
 
-	f, _ := os.OpenFile("animation.gif", os.O_WRONLY|os.O_CREATE, 0600)
+	filename := "min.gif"
+	if *FlagMin {
+		filename = "min.gif"
+	} else if *FlagMax {
+		filename = "max.gif"
+	} else if *FlagConstance {
+		filename = "const.gif"
+	}
+	f, _ := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE, 0600)
 	defer f.Close()
 	gif.EncodeAll(f, animation)
 }
