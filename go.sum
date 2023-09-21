@@ -1,0 +1,6 @@
+github.com/pointlander/pagerank v0.0.0-20210619221740-830548a59275 h1:KF7JT+ypSI82OfOEGVdNBM31o5+7NuFuuenR3quajVc=
+github.com/pointlander/pagerank v0.0.0-20210619221740-830548a59275/go.mod h1:9UawvzpkRT8gwNLM8E8JdGnn6p1kHqEdV+P8TlDZibk=
+github.com/ziutek/blas v0.0.0-20190227122918-da4ca23e90bb h1:uWiILQloLUVdtPYr1ZZo2zqtlpzo4G8vUpglo/Fs2H8=
+github.com/ziutek/blas v0.0.0-20190227122918-da4ca23e90bb/go.mod h1:J3xKssoVdrwZ2E29fIox/EKxOZWimS7AZ4fOTCFkOLo=
+gonum.org/v1/gonum v0.14.0 h1:2NiG67LD1tEH0D7kM+ps2V+fXmsAnpUeec7n8tcr4S0=
+gonum.org/v1/gonum v0.14.0/go.mod h1:AoWeoz0becf9QMWtE8iWXNXc27fK4fNeHNf/oMejGfU=
