@@ -6,6 +6,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"image"
 	"image/color"
 	"image/color/palette"
@@ -32,11 +33,13 @@ var (
 
 // Particle is a particle
 type Particle struct {
-	X, Y float64
+	X, Y, T float64
 }
 
 func main() {
 	flag.Parse()
+
+	const n = 3
 
 	particles := []Particle{
 		{X: 0, Y: 0},
@@ -48,7 +51,7 @@ func main() {
 		distances := NewMatrix(0, len(particles), len(particles))
 		for _, a := range particles {
 			for _, b := range particles {
-				d := math.Sqrt(math.Pow(a.X-b.X, 2) + math.Pow(a.Y-b.Y, 2))
+				d := math.Sqrt(math.Pow(a.X-b.X, 2) + math.Pow(a.Y-b.Y, 2) + math.Pow(a.T-b.T, 2))
 				distances.Data = append(distances.Data, d)
 			}
 		}
@@ -59,9 +62,10 @@ func main() {
 	const epochs = 256
 	images := make([]*image.Paletted, epochs)
 	for s := 0; s < epochs; s++ {
-		points := make(plotter.XYs, 0, len(particles))
+		fmt.Println("epcoh:", s)
+		points, length := make(plotter.XYs, 0, len(particles)), len(particles)
 		if *FlagMin || (!*FlagMax && !*FlagConstance) {
-			for i := range particles {
+			for i := length - n; i < length; i++ {
 				particle, min := particles[i], math.MaxFloat64
 				x, y := particle.X, particle.Y
 				for j := -1; j <= 1; j++ {
@@ -79,7 +83,7 @@ func main() {
 				points = append(points, plotter.XY{X: x, Y: y})
 			}
 		} else if *FlagMax {
-			for i := range particles {
+			for i := length - n; i < length; i++ {
 				particle, max := particles[i], -math.MaxFloat64
 				x, y := particle.X, particle.Y
 				for j := -1; j <= 1; j++ {
@@ -97,7 +101,7 @@ func main() {
 				points = append(points, plotter.XY{X: x, Y: y})
 			}
 		} else if *FlagConstance {
-			for i := range particles {
+			for i := length - n; i < length; i++ {
 				original := getEntropy()
 				particle, min := particles[i], math.MaxFloat64
 				x, y := particle.X, particle.Y
@@ -115,6 +119,16 @@ func main() {
 				particles[i].X, particles[i].Y = x, y
 				points = append(points, plotter.XY{X: x, Y: y})
 			}
+		}
+		for i := length - n; i < length; i++ {
+			particle := particles[i]
+			particle.T++
+			particles = append(particles, particle)
+		}
+		if len(particles) > n*8 {
+			next := make([]Particle, n*8)
+			copy(next, particles[len(particles)-n*8:])
+			particles = next
 		}
 		p := plot.New()
 
