@@ -41,12 +41,20 @@ func main() {
 	rng := rand.New(rand.NewSource(1))
 	flag.Parse()
 
-	const n = 3
+	const n, sets = 4, 8
 
 	particles := []Particle{
 		{X: 0, Y: 0},
 		{X: 128, Y: 0},
 		{X: 0, Y: 128},
+		{X: 64, Y: 64},
+	}
+	for i := 1; i < sets; i++ {
+		for _, particle := range particles[:n] {
+			particle.X += rng.NormFloat64()
+			particle.Y += rng.NormFloat64()
+			particles = append(particles, particle)
+		}
 	}
 
 	getEntropy := func() []float64 {
@@ -65,6 +73,20 @@ func main() {
 	images := make([]*image.Paletted, epochs)
 	for s := 0; s < epochs; s++ {
 		fmt.Println("epcoh:", s)
+		sum, sumSquared, stddev := make([]float64, n), make([]float64, n), make([]float64, n)
+		for i := 1; i < sets; i++ {
+			for j := 0; j < n; j++ {
+				a := particles[(i-1)*n+j]
+				b := particles[i*n+j]
+				d := math.Sqrt(math.Pow(a.X-b.X, 2) + math.Pow(a.Y-b.Y, 2))
+				sum[j] += d
+				sumSquared[j] += d * d
+			}
+		}
+		for i := 0; i < n; i++ {
+			mean := sum[i] / float64(sets-1)
+			stddev[i] = math.Sqrt(sumSquared[i]/float64(sets-1) - mean*mean)
+		}
 		points, length := make(plotter.XYs, 0, len(particles)), len(particles)
 		if *FlagMin || (!*FlagMax && !*FlagConstance) {
 			saved, best, min := make([]Particle, n), make([]Particle, n), math.MaxFloat64
@@ -75,9 +97,11 @@ func main() {
 				index++
 			}
 			for s := 0; s < 128; s++ {
+				index := 0
 				for i := length - n; i < length; i++ {
-					particles[i].X += rng.NormFloat64()
-					particles[i].Y += rng.NormFloat64()
+					particles[i].X += rng.NormFloat64() * stddev[index]
+					particles[i].Y += rng.NormFloat64() * stddev[index]
+					index++
 				}
 				entropy := getEntropy()
 				index, sum := 0, 0.0
@@ -114,9 +138,11 @@ func main() {
 				index++
 			}
 			for s := 0; s < 128; s++ {
+				index := 0
 				for i := length - n; i < length; i++ {
-					particles[i].X += rng.NormFloat64()
-					particles[i].Y += rng.NormFloat64()
+					particles[i].X += rng.NormFloat64() * stddev[index]
+					particles[i].Y += rng.NormFloat64() * stddev[index]
+					index++
 				}
 				entropy := getEntropy()
 				index, sum := 0, 0.0
@@ -158,9 +184,11 @@ func main() {
 				index++
 			}
 			for s := 0; s < 128; s++ {
+				index := 0
 				for i := length - n; i < length; i++ {
-					particles[i].X += rng.NormFloat64()
-					particles[i].Y += rng.NormFloat64()
+					particles[i].X += rng.NormFloat64() * stddev[index]
+					particles[i].Y += rng.NormFloat64() * stddev[index]
+					index++
 				}
 				entropy := getEntropy()
 				index, sum := 0, 0.0
@@ -195,7 +223,7 @@ func main() {
 			particle.T++
 			particles = append(particles, particle)
 		}
-		if len(particles) > n*8 {
+		if len(particles) > n*sets {
 			next := make([]Particle, n*8)
 			copy(next, particles[len(particles)-n*8:])
 			particles = next
