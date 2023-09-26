@@ -100,6 +100,7 @@ func main() {
 		for _, particle := range particles[:n] {
 			particle.X += rng.NormFloat64()
 			particle.Y += rng.NormFloat64()
+			particle.T += float64(i)
 			particles = append(particles, particle)
 		}
 	}
@@ -118,14 +119,16 @@ func main() {
 	}
 	const epochs = 256
 	images := make([]*image.Paletted, epochs)
-	var optimizer Optimizer = &MinOptimizer{Min: math.MaxFloat64}
-	if *FlagMax {
-		optimizer = &MaxOptimizer{Max: -math.MaxFloat64}
-	} else if *FlagConstance {
-		optimizer = &ConstanceOptimizer{Min: math.MaxFloat64}
-	}
 	for s := 0; s < epochs; s++ {
 		fmt.Println("epcoh:", s)
+
+		var optimizer Optimizer = &MinOptimizer{Min: math.MaxFloat64}
+		if *FlagMax {
+			optimizer = &MaxOptimizer{Max: -math.MaxFloat64}
+		} else if *FlagConstance {
+			optimizer = &ConstanceOptimizer{Min: math.MaxFloat64}
+		}
+
 		sum, sumSquared, stddev := make([]float64, n), make([]float64, n), make([]float64, n)
 		for i := 1; i < sets; i++ {
 			for j := 0; j < n; j++ {
@@ -193,8 +196,8 @@ func main() {
 			particles = append(particles, particle)
 		}
 		if len(particles) > n*sets {
-			next := make([]Particle, n*8)
-			copy(next, particles[len(particles)-n*8:])
+			next := make([]Particle, n*sets)
+			copy(next, particles[len(particles)-n*sets:])
 			particles = next
 		}
 		p := plot.New()
