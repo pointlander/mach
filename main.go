@@ -37,6 +37,53 @@ type Particle struct {
 	X, Y, T float64
 }
 
+// Optimizer is an optimizer
+type Optimizer interface {
+	Optimize(current, next float64) bool
+}
+
+// MinOptimizer is a minimization optimizer
+type MinOptimizer struct {
+	Min float64
+}
+
+// Optimize is a minimization optimizer
+func (o *MinOptimizer) Optimize(current, next float64) bool {
+	if next < o.Min {
+		o.Min = next
+		return true
+	}
+	return false
+}
+
+// MaxOptimizer is a maximization optimizer
+type MaxOptimizer struct {
+	Max float64
+}
+
+// Optimize is a maximization optimizer
+func (o *MaxOptimizer) Optimize(current, next float64) bool {
+	if next > o.Max {
+		o.Max = next
+		return true
+	}
+	return false
+}
+
+// ConstanceOptimizer is a constance optimizer
+type ConstanceOptimizer struct {
+	Min float64
+}
+
+// Optimize is a constance optimizer
+func (o *ConstanceOptimizer) Optimize(current, next float64) bool {
+	if math.Abs(next-current) < o.Min {
+		o.Min = math.Abs(next - current)
+		return true
+	}
+	return false
+}
+
 func main() {
 	rng := rand.New(rand.NewSource(1))
 	flag.Parse()
@@ -71,6 +118,12 @@ func main() {
 	}
 	const epochs = 256
 	images := make([]*image.Paletted, epochs)
+	var optimizer Optimizer = &MinOptimizer{Min: math.MaxFloat64}
+	if *FlagMax {
+		optimizer = &MaxOptimizer{Max: -math.MaxFloat64}
+	} else if *FlagConstance {
+		optimizer = &ConstanceOptimizer{Min: math.MaxFloat64}
+	}
 	for s := 0; s < epochs; s++ {
 		fmt.Println("epcoh:", s)
 		sum, sumSquared, stddev := make([]float64, n), make([]float64, n), make([]float64, n)
@@ -88,135 +141,51 @@ func main() {
 			stddev[i] = math.Sqrt(sumSquared[i]/float64(sets-1) - mean*mean)
 		}
 		points, length := make(plotter.XYs, 0, len(particles)), len(particles)
-		if *FlagMin || (!*FlagMax && !*FlagConstance) {
-			saved, best, min := make([]Particle, n), make([]Particle, n), math.MaxFloat64
+
+		current := 0.0
+		entropy := getEntropy()
+		for _, value := range entropy {
+			current += -value
+		}
+
+		saved, best := make([]Particle, n), make([]Particle, n)
+		index := 0
+		for i := length - n; i < length; i++ {
+			saved[index] = particles[i]
+			best[index] = particles[i]
+			index++
+		}
+		for s := 0; s < 128; s++ {
 			index := 0
 			for i := length - n; i < length; i++ {
-				saved[index] = particles[i]
-				best[index] = particles[i]
+				particles[i].X += rng.NormFloat64() * stddev[index]
+				particles[i].Y += rng.NormFloat64() * stddev[index]
 				index++
 			}
-			for s := 0; s < 128; s++ {
-				index := 0
-				for i := length - n; i < length; i++ {
-					particles[i].X += rng.NormFloat64() * stddev[index]
-					particles[i].Y += rng.NormFloat64() * stddev[index]
-					index++
-				}
-				entropy := getEntropy()
-				index, sum := 0, 0.0
-				for _, value := range entropy {
-					sum += -value
-				}
-				if sum < min {
-					min = sum
-					index = 0
-					for i := length - n; i < length; i++ {
-						best[index] = particles[i]
-						index++
-					}
-				}
-				index = 0
-				for i := length - n; i < length; i++ {
-					particles[i] = saved[index]
-					index++
-				}
-			}
-
-			index = 0
-			for i := length - n; i < length; i++ {
-				particles[i] = best[index]
-				points = append(points, plotter.XY{X: best[index].X, Y: best[index].Y})
-				index++
-			}
-		} else if *FlagMax {
-			saved, best, max := make([]Particle, n), make([]Particle, n), -math.MaxFloat64
-			index := 0
-			for i := length - n; i < length; i++ {
-				saved[index] = particles[i]
-				best[index] = particles[i]
-				index++
-			}
-			for s := 0; s < 128; s++ {
-				index := 0
-				for i := length - n; i < length; i++ {
-					particles[i].X += rng.NormFloat64() * stddev[index]
-					particles[i].Y += rng.NormFloat64() * stddev[index]
-					index++
-				}
-				entropy := getEntropy()
-				index, sum := 0, 0.0
-				for _, value := range entropy {
-					sum += -value
-				}
-				if sum > max {
-					max = sum
-					index = 0
-					for i := length - n; i < length; i++ {
-						best[index] = particles[i]
-						index++
-					}
-				}
-				index = 0
-				for i := length - n; i < length; i++ {
-					particles[i] = saved[index]
-					index++
-				}
-			}
-
-			index = 0
-			for i := length - n; i < length; i++ {
-				particles[i] = best[index]
-				points = append(points, plotter.XY{X: best[index].X, Y: best[index].Y})
-				index++
-			}
-		} else if *FlagConstance {
-			saved, best, min := make([]Particle, n), make([]Particle, n), math.MaxFloat64
-			current := 0.0
 			entropy := getEntropy()
+			index, sum := 0, 0.0
 			for _, value := range entropy {
-				current += -value
+				sum += -value
 			}
-			index := 0
-			for i := length - n; i < length; i++ {
-				saved[index] = particles[i]
-				best[index] = particles[i]
-				index++
-			}
-			for s := 0; s < 128; s++ {
+			if optimizer.Optimize(current, sum) {
 				index := 0
 				for i := length - n; i < length; i++ {
-					particles[i].X += rng.NormFloat64() * stddev[index]
-					particles[i].Y += rng.NormFloat64() * stddev[index]
-					index++
-				}
-				entropy := getEntropy()
-				index, sum := 0, 0.0
-				for _, value := range entropy {
-					sum += -value
-				}
-				sum = math.Abs(sum - current)
-				if sum < min {
-					min = sum
-					index = 0
-					for i := length - n; i < length; i++ {
-						best[index] = particles[i]
-						index++
-					}
-				}
-				index = 0
-				for i := length - n; i < length; i++ {
-					particles[i] = saved[index]
+					best[index] = particles[i]
 					index++
 				}
 			}
-
 			index = 0
 			for i := length - n; i < length; i++ {
-				particles[i] = best[index]
-				points = append(points, plotter.XY{X: best[index].X, Y: best[index].Y})
+				particles[i] = saved[index]
 				index++
 			}
+		}
+
+		index = 0
+		for i := length - n; i < length; i++ {
+			particles[i] = best[index]
+			points = append(points, plotter.XY{X: best[index].X, Y: best[index].Y})
+			index++
 		}
 		for i := length - n; i < length; i++ {
 			particle := particles[i]
