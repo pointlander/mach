@@ -129,19 +129,17 @@ func main() {
 			optimizer = &ConstanceOptimizer{Min: math.MaxFloat64}
 		}
 
-		sum, sumSquared, stddev := make([]float64, n), make([]float64, n), make([]float64, n)
+		sum, avg := make([]float64, n), make([]float64, n)
 		for i := 1; i < sets; i++ {
 			for j := 0; j < n; j++ {
 				a := particles[(i-1)*n+j]
 				b := particles[i*n+j]
 				d := math.Sqrt(math.Pow(a.X-b.X, 2) + math.Pow(a.Y-b.Y, 2))
 				sum[j] += d
-				sumSquared[j] += d * d
 			}
 		}
 		for i := 0; i < n; i++ {
-			mean := sum[i] / float64(sets-1)
-			stddev[i] = math.Sqrt(sumSquared[i]/float64(sets-1) - mean*mean)
+			avg[i] = sum[i] / float64(sets-1)
 		}
 		points, length := make(plotter.XYs, 0, len(particles)), len(particles)
 
@@ -161,8 +159,8 @@ func main() {
 		for s := 0; s < 128; s++ {
 			index := 0
 			for i := length - n; i < length; i++ {
-				particles[i].X += rng.NormFloat64() * stddev[index]
-				particles[i].Y += rng.NormFloat64() * stddev[index]
+				particles[i].X += rng.NormFloat64() * avg[index]
+				particles[i].Y += rng.NormFloat64() * avg[index]
 				index++
 			}
 			entropy := getEntropy()
