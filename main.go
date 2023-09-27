@@ -30,6 +30,8 @@ var (
 	FlagMax = flag.Bool("max", false, "maximize entropy")
 	// FlagConstance constant entropy
 	FlagConstance = flag.Bool("const", false, "constant entropy")
+	// FlagN is the number of particles
+	FlagN = flag.Int("n", 0, "number of particles")
 )
 
 // Particle is a particle
@@ -88,13 +90,21 @@ func main() {
 	rng := rand.New(rand.NewSource(1))
 	flag.Parse()
 
-	const n, sets = 4, 8
+	n := 4
+	const sets = 8
 
 	particles := []Particle{
 		{X: 0, Y: 0},
 		{X: 128, Y: 0},
 		{X: 0, Y: 128},
 		{X: 64, Y: 64},
+	}
+	if *FlagN > 0 {
+		n = *FlagN
+		particles = make([]Particle, n)
+		for i := 0; i < n; i++ {
+			particles[i] = Particle{X: rng.Float64() * 128, Y: rng.Float64() * 128}
+		}
 	}
 	for i := 1; i < sets; i++ {
 		for _, particle := range particles[:n] {
