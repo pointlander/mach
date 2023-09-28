@@ -112,11 +112,19 @@ func SelfAttentionGetEntropy(particles []Particle) []float64 {
 
 // FFTGetEntropy uses FFT to get entropy
 func FFTGetEntropy(particles []Particle) []float64 {
-	const size = 256
+	const size = 32
 	verse := dsputils.MakeEmptyMatrix([]int{sets, size, size})
 	for i := 0; i < sets; i++ {
 		for j := 0; j < 4; j++ {
-			dim := []int{i, int(particles[i*4+j].X), int(particles[i*4+j].Y)}
+			x := int(particles[i*4+j].X) % size
+			if x < 0 {
+				x += size
+			}
+			y := int(particles[i*4+j].Y) % size
+			if y < 0 {
+				y += size
+			}
+			dim := []int{i, x, y}
 			verse.SetValue(1, dim)
 		}
 	}
@@ -155,6 +163,14 @@ func main() {
 		{X: 128, Y: 0},
 		{X: 0, Y: 128},
 		{X: 64, Y: 64},
+	}
+	if *FlagFFT {
+		particles = []Particle{
+			{X: 0, Y: 0},
+			{X: 8, Y: 0},
+			{X: 0, Y: 8},
+			{X: 4, Y: 4},
+		}
 	}
 	if *FlagN > 0 {
 		n = *FlagN
