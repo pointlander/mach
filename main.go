@@ -86,6 +86,23 @@ func (o *ConstanceOptimizer) Optimize(current, next float64) bool {
 	return false
 }
 
+// GetEntropy is a function to get entropy
+type GetEntropy func([]Particle) []float64
+
+// SelfAttentionGetEntropy usese self attention to get entropy
+func SelfAttentionGetEntropy(particles []Particle) []float64 {
+	distances := NewMatrix(0, len(particles), len(particles))
+	for _, a := range particles {
+		for _, b := range particles {
+			d := math.Sqrt(math.Pow(a.X-b.X, 2) + math.Pow(a.Y-b.Y, 2) + math.Pow(a.T-b.T, 2))
+			distances.Data = append(distances.Data, d)
+		}
+	}
+	units := Normalize(distances)
+	embedding := SelfEntropy(units, units, units)
+	return embedding
+}
+
 func main() {
 	rng := rand.New(rand.NewSource(1))
 	flag.Parse()
@@ -115,18 +132,7 @@ func main() {
 		}
 	}
 
-	getEntropy := func() []float64 {
-		distances := NewMatrix(0, len(particles), len(particles))
-		for _, a := range particles {
-			for _, b := range particles {
-				d := math.Sqrt(math.Pow(a.X-b.X, 2) + math.Pow(a.Y-b.Y, 2) + math.Pow(a.T-b.T, 2))
-				distances.Data = append(distances.Data, d)
-			}
-		}
-		units := Normalize(distances)
-		embedding := SelfEntropy(units, units, units)
-		return embedding
-	}
+	var getEntropy GetEntropy = SelfAttentionGetEntropy
 	const epochs = 256
 	images := make([]*image.Paletted, epochs)
 	for s := 0; s < epochs; s++ {
@@ -154,7 +160,7 @@ func main() {
 		points, length := make(plotter.XYs, 0, len(particles)), len(particles)
 
 		current := 0.0
-		entropy := getEntropy()
+		entropy := getEntropy(particles)
 		for _, value := range entropy {
 			current += -value
 		}
@@ -173,7 +179,7 @@ func main() {
 				particles[i].Y += rng.NormFloat64() * avg[index]
 				index++
 			}
-			entropy := getEntropy()
+			entropy := getEntropy(particles)
 			index, sum := 0, 0.0
 			for _, value := range entropy {
 				sum += -value
