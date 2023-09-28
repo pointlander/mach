@@ -13,9 +13,12 @@ import (
 	drw "image/draw"
 	"image/gif"
 	"math"
+	"math/cmplx"
 	"math/rand"
 	"os"
 
+	"github.com/mjibson/go-dsp/dsputils"
+	"github.com/mjibson/go-dsp/fft"
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
 	"gonum.org/v1/plot/vg"
@@ -32,6 +35,8 @@ var (
 	FlagConstance = flag.Bool("const", false, "constant entropy")
 	// FlagN is the number of particles
 	FlagN = flag.Int("n", 0, "number of particles")
+	// FlagFFT is the fft mode
+	FlagFFT = flag.Bool("fft", false, "fft mode")
 )
 
 // Particle is a particle
@@ -86,6 +91,8 @@ func (o *ConstanceOptimizer) Optimize(current, next float64) bool {
 	return false
 }
 
+const sets = 8
+
 // GetEntropy is a function to get entropy
 type GetEntropy func([]Particle) []float64
 
@@ -103,12 +110,45 @@ func SelfAttentionGetEntropy(particles []Particle) []float64 {
 	return embedding
 }
 
+// FFTGetEntropy uses FFT to get entropy
+func FFTGetEntropy(particles []Particle) []float64 {
+	const size = 256
+	verse := dsputils.MakeEmptyMatrix([]int{sets, size, size})
+	for i := 0; i < sets; i++ {
+		for j := 0; j < 4; j++ {
+			dim := []int{i, int(particles[i*4+j].X), int(particles[i*4+j].Y)}
+			verse.SetValue(1, dim)
+		}
+	}
+	verse = fft.FFTN(verse)
+	p, index := make([]float64, sets*size*size), 0
+	for i := 0; i < sets; i++ {
+		for j := 0; j < size; j++ {
+			for k := 0; k < size; k++ {
+				r := cmplx.Abs(verse.Value([]int{i, j, k}))
+				p[index] = r * r
+				index++
+			}
+		}
+	}
+	sum := 0.0
+	for _, value := range p {
+		sum += value
+	}
+	h := 0.0
+	for _, value := range p {
+		value /= sum
+		value += .5
+		h += value * math.Log(value)
+	}
+	return []float64{h}
+}
+
 func main() {
 	rng := rand.New(rand.NewSource(1))
 	flag.Parse()
 
 	n := 4
-	const sets = 8
 
 	particles := []Particle{
 		{X: 0, Y: 0},
@@ -133,6 +173,9 @@ func main() {
 	}
 
 	var getEntropy GetEntropy = SelfAttentionGetEntropy
+	if *FlagFFT {
+		getEntropy = FFTGetEntropy
+	}
 	const epochs = 256
 	images := make([]*image.Paletted, epochs)
 	for s := 0; s < epochs; s++ {
@@ -184,6 +227,7 @@ func main() {
 			for _, value := range entropy {
 				sum += -value
 			}
+			//fmt.Println(s, "entropy:", sum)
 			if optimizer.Optimize(current, sum) {
 				index := 0
 				for i := length - n; i < length; i++ {
