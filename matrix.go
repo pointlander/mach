@@ -7,6 +7,7 @@ package main
 import (
 	"fmt"
 	"math"
+	"math/cmplx"
 	"math/rand"
 
 	"github.com/pointlander/pagerank"
@@ -478,6 +479,118 @@ func SelfAttention(Q, K, V Matrix) Matrix {
 			outputs[j] = dot(values, V)
 		}
 		o.Data = append(o.Data, outputs...)
+	}
+	return o
+}
+
+func complexDot(X, Y []complex128) complex128 {
+	var sum complex128
+	for i, x := range X {
+		sum += x * Y[i]
+	}
+	return sum
+}
+
+// ComplexMatrix is a complex matrix
+type ComplexMatrix struct {
+	Cols   int
+	Rows   int
+	Data   []complex128
+	States [][]complex128
+}
+
+// NewComplexMatrix creates a new complex matrix
+func NewComplexMatrix(states, cols, rows int) ComplexMatrix {
+	m := ComplexMatrix{
+		Cols: cols,
+		Rows: rows,
+		Data: make([]complex128, 0, cols*rows),
+	}
+	if states > 0 {
+		m.States = make([][]complex128, states)
+		for i := range m.States {
+			m.States[i] = make([]complex128, cols*rows)
+		}
+	}
+	return m
+}
+
+// NewComplexIdentityMatrix creates a new complex matrix
+func NewComplexIdentityMatrix(states, cols, rows int) ComplexMatrix {
+	m := ComplexMatrix{
+		Cols: cols,
+		Rows: rows,
+		Data: make([]complex128, 0, cols*rows),
+	}
+	for i := 0; i < cols; i++ {
+		for j := 0; j < rows; j++ {
+			if i == j {
+				m.Data = append(m.Data, 1)
+			} else {
+				m.Data = append(m.Data, 0)
+			}
+		}
+	}
+	if states > 0 {
+		m.States = make([][]complex128, states)
+		for i := range m.States {
+			m.States[i] = make([]complex128, cols*rows)
+		}
+	}
+	return m
+}
+
+// ComplexMul multiplies two complex matrices
+func ComplexMul(m ComplexMatrix, n ComplexMatrix) ComplexMatrix {
+	if m.Cols != n.Cols {
+		panic(fmt.Errorf("%d != %d", m.Cols, n.Cols))
+	}
+	columns := m.Cols
+	o := ComplexMatrix{
+		Cols: m.Rows,
+		Rows: n.Rows,
+		Data: make([]complex128, 0, m.Rows*n.Rows),
+	}
+	lenn, lenm := len(n.Data), len(m.Data)
+	for i := 0; i < lenn; i += columns {
+		nn := n.Data[i : i+columns]
+		for j := 0; j < lenm; j += columns {
+			mm := m.Data[j : j+columns]
+			o.Data = append(o.Data, complexDot(mm, nn))
+		}
+	}
+	return o
+}
+
+// ComplexT tramsposes a complex matrix
+func ComplexT(m ComplexMatrix) ComplexMatrix {
+	o := ComplexMatrix{
+		Cols: m.Rows,
+		Rows: m.Cols,
+		Data: make([]complex128, 0, m.Cols*m.Rows),
+	}
+	for i := 0; i < m.Cols; i++ {
+		for j := 0; j < m.Rows; j++ {
+			o.Data = append(o.Data, cmplx.Conj(m.Data[j*m.Cols+i]))
+		}
+	}
+	return o
+}
+
+// ComplexSub subtracts two complex matrices
+func ComplexSub(m ComplexMatrix, n ComplexMatrix) ComplexMatrix {
+	lena, lenb := len(m.Data), len(n.Data)
+	if lena%lenb != 0 {
+		panic(fmt.Errorf("%d %% %d != 0", lena, lenb))
+	}
+
+	o := ComplexMatrix{
+		Cols: m.Cols,
+		Rows: m.Rows,
+		Data: make([]complex128, 0, m.Cols*m.Rows),
+	}
+	for i, value := range m.Data {
+		o.Data = append(o.Data, value-n.Data[i%lenb])
 	}
 	return o
 }
