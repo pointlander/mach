@@ -37,6 +37,8 @@ var (
 	FlagN = flag.Int("n", 0, "number of particles")
 	// FlagFFT is the fft mode
 	FlagFFT = flag.Bool("fft", false, "fft mode")
+	// FlagUnitary is the unitary mode
+	FlagUnitary = flag.Bool("unitary", false, "unitary mode")
 )
 
 // Particle is a particle
@@ -92,6 +94,8 @@ func (o *ConstanceOptimizer) Optimize(current, next float64) bool {
 }
 
 const sets = 8
+
+var n = 4
 
 // GetEntropy is a function to get entropy
 type GetEntropy func([]Particle) []float64
@@ -152,11 +156,27 @@ func FFTGetEntropy(particles []Particle) []float64 {
 	return []float64{h}
 }
 
+// UnitaryMetric is the unitary metrix
+func UnitaryMetric(particles []Particle) []float64 {
+	particles = particles[len(particles)-n:]
+	distances := NewComplexMatrix(0, len(particles), len(particles))
+	for _, a := range particles {
+		for _, b := range particles {
+			d := complex(b.X-a.X, b.Y-a.Y)
+			distances.Data = append(distances.Data, d)
+		}
+	}
+	metric := ComplexSub(ComplexMul(distances, ComplexT(distances)), NewComplexIdentityMatrix(0, len(particles), len(particles)))
+	total := 0.0
+	for _, value := range metric.Data {
+		total += cmplx.Abs(value)
+	}
+	return []float64{total}
+}
+
 func main() {
 	rng := rand.New(rand.NewSource(1))
 	flag.Parse()
-
-	n := 4
 
 	particles := []Particle{
 		{X: 0, Y: 0},
@@ -191,6 +211,8 @@ func main() {
 	var getEntropy GetEntropy = SelfAttentionGetEntropy
 	if *FlagFFT {
 		getEntropy = FFTGetEntropy
+	} else if *FlagUnitary {
+		getEntropy = UnitaryMetric
 	}
 	const epochs = 256
 	images := make([]*image.Paletted, epochs)
