@@ -562,17 +562,15 @@ func ComplexMul(m ComplexMatrix, n ComplexMatrix) ComplexMatrix {
 	return o
 }
 
-// ComplexT tramsposes a complex matrix
-func ComplexT(m ComplexMatrix) ComplexMatrix {
+// ComplexConj computes the complex conjugate of a matrix
+func ComplexConj(m ComplexMatrix) ComplexMatrix {
 	o := ComplexMatrix{
 		Cols: m.Rows,
 		Rows: m.Cols,
 		Data: make([]complex128, 0, m.Cols*m.Rows),
 	}
-	for i := 0; i < m.Cols; i++ {
-		for j := 0; j < m.Rows; j++ {
-			o.Data = append(o.Data, cmplx.Conj(m.Data[j*m.Cols+i]))
-		}
+	for _, value := range m.Data {
+		o.Data = append(o.Data, cmplx.Conj(value))
 	}
 	return o
 }

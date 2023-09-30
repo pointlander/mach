@@ -166,7 +166,7 @@ func UnitaryMetric(particles []Particle) []float64 {
 			distances.Data = append(distances.Data, d)
 		}
 	}
-	metric := ComplexSub(ComplexMul(distances, ComplexT(distances)), NewComplexIdentityMatrix(0, len(particles), len(particles)))
+	metric := ComplexSub(ComplexMul(distances, ComplexConj(distances)), NewComplexIdentityMatrix(0, len(particles), len(particles)))
 	total := 0.0
 	for _, value := range metric.Data {
 		total += cmplx.Abs(value)
@@ -203,7 +203,7 @@ func main() {
 		for _, particle := range particles[:n] {
 			particle.X += rng.NormFloat64()
 			particle.Y += rng.NormFloat64()
-			particle.T += float64(i)
+			particle.T = float64(i)
 			particles = append(particles, particle)
 		}
 	}
