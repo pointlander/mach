@@ -16,9 +16,12 @@ import (
 	"math/cmplx"
 	"math/rand"
 	"os"
+	"time"
 
+	gl "github.com/fogleman/fauxgl"
 	"github.com/mjibson/go-dsp/dsputils"
 	"github.com/mjibson/go-dsp/fft"
+	"github.com/nfnt/resize"
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
 	"gonum.org/v1/plot/vg"
@@ -39,6 +42,8 @@ var (
 	FlagFFT = flag.Bool("fft", false, "fft mode")
 	// FlagUnitary is the unitary mode
 	FlagUnitary = flag.Bool("unitary", false, "unitary mode")
+	// FlagQuaternion is the quaternion mode
+	FlagQuaternion = flag.Bool("quaternion", false, "quaternion mode")
 )
 
 // Particle is a particle
@@ -174,9 +179,78 @@ func UnitaryMetric(particles []Particle) []float64 {
 	return []float64{total}
 }
 
+const (
+	scale  = 4    // optional supersampling
+	width  = 1600 // output width in pixels
+	height = 1600 // output height in pixels
+	fovy   = 30   // vertical field of view in degrees
+	near   = 1    // near clipping plane
+	far    = 100  // far clipping plane
+)
+
+var (
+	eye         = gl.V(3*4, 3*4, 1.5*4)          // camera position
+	center      = gl.V(0, 0, 0)                  // view center position
+	up          = gl.V(0, 0, 1)                  // up vector
+	light       = gl.V(0.75, 0.5, 1).Normalize() // light direction
+	objectColor = gl.HexColor("#468966")         // object color
+	background  = gl.HexColor("#FFF8E3")         // background color
+)
+
+// QuaternionMode is the quaternion mode
+func QuaternionMode() {
+	mesh := gl.NewEmptyMesh()
+	for i := 0; i < 1500; i++ {
+		var x, y, z float64
+		for {
+			x = rand.Float64()*2 - 1
+			y = rand.Float64()*2 - 1
+			z = rand.Float64()*2 - 1
+			if x*x+y*y+z*z < 1 {
+				break
+			}
+		}
+		p := gl.Vector{x, y, z}.MulScalar(4)
+		s := gl.V(0.2, 0.2, 0.2)
+		u := gl.RandomUnitVector()
+		a := rand.Float64() * 2 * math.Pi
+		c := gl.NewCube()
+		c.Transform(gl.Orient(p, s, u, a))
+		mesh.Add(c)
+	}
+
+	// create a rendering context
+	context := gl.NewContext(width*scale, height*scale)
+	context.ClearColorBufferWith(gl.Black)
+
+	// create transformation matrix and light direction
+	aspect := float64(width) / float64(height)
+	matrix := gl.LookAt(eye, center, up).Perspective(fovy, aspect, near, far)
+
+	// render
+	shader := gl.NewPhongShader(matrix, light, eye)
+	shader.ObjectColor = objectColor
+	context.Shader = shader
+	start := time.Now()
+	context.DrawMesh(mesh)
+	fmt.Println(time.Since(start))
+
+	// downsample image for antialiasing
+	image := context.Image()
+	image = resize.Resize(width, height, image, resize.Bilinear)
+
+	// save image
+	gl.SavePNG("out.png", image)
+}
+
 func main() {
 	rng := rand.New(rand.NewSource(1))
 	flag.Parse()
+
+	if *FlagQuaternion {
+		QuaternionMode()
+		return
+	}
 
 	particles := []Particle{
 		{X: 0, Y: 0},
