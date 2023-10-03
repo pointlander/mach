@@ -16,12 +16,14 @@ import (
 	"math/cmplx"
 	"math/rand"
 	"os"
+	"sort"
 	"time"
 
 	gl "github.com/fogleman/fauxgl"
 	"github.com/mjibson/go-dsp/dsputils"
 	"github.com/mjibson/go-dsp/fft"
 	"github.com/nfnt/resize"
+	"gonum.org/v1/gonum/num/quat"
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
 	"gonum.org/v1/plot/vg"
@@ -48,7 +50,8 @@ var (
 
 // Particle is a particle
 type Particle struct {
-	X, Y, T float64
+	I          int
+	X, Y, Z, T float64
 }
 
 // Optimizer is an optimizer
@@ -179,6 +182,29 @@ func UnitaryMetric(particles []Particle) []float64 {
 	return []float64{total}
 }
 
+// QuaternionUnitaryMetric is the quaternion unitary metrix
+func QuaternionUnitaryMetric(particles []Particle) []float64 {
+	particles = particles[len(particles)-n:]
+	distances := NewQMatrix(0, len(particles), len(particles))
+	for _, a := range particles {
+		for _, b := range particles {
+			d := quat.Number{
+				Real: b.T - a.T,
+				Imag: b.X - a.X,
+				Jmag: b.Y - a.Y,
+				Kmag: b.Z - a.Z,
+			}
+			distances.Data = append(distances.Data, d)
+		}
+	}
+	metric := QSub(QMul(distances, QConj(distances)), NewQIdentityMatrix(0, len(particles), len(particles)))
+	total := 0.0
+	for _, value := range metric.Data {
+		total += quat.Abs(value)
+	}
+	return []float64{total}
+}
+
 const (
 	scale  = 4    // optional supersampling
 	width  = 1600 // output width in pixels
@@ -198,49 +224,216 @@ var (
 )
 
 // QuaternionMode is the quaternion mode
-func QuaternionMode() {
-	mesh := gl.NewEmptyMesh()
-	for i := 0; i < 1500; i++ {
-		var x, y, z float64
-		for {
-			x = rand.Float64()*2 - 1
-			y = rand.Float64()*2 - 1
-			z = rand.Float64()*2 - 1
-			if x*x+y*y+z*z < 1 {
-				break
+func QuaternionMode(rng *rand.Rand) {
+	particles := []Particle{
+		{X: 0, Y: 0, Z: 0},
+		{X: 1, Y: 0, Z: 0},
+		{X: 0, Y: 1, Z: 0},
+		{X: .5, Y: .5, Z: 0},
+	}
+	if *FlagN > 0 {
+		n = *FlagN
+		particles = make([]Particle, n)
+		for i := 0; i < n; i++ {
+			particles[i] = Particle{
+				X: rng.Float64(),
+				Y: rng.Float64(),
+				Z: rng.Float64(),
+				T: rng.Float64(),
 			}
 		}
-		p := gl.Vector{x, y, z}.MulScalar(4)
-		s := gl.V(0.2, 0.2, 0.2)
-		u := gl.RandomUnitVector()
-		a := rand.Float64() * 2 * math.Pi
-		c := gl.NewCube()
-		c.Transform(gl.Orient(p, s, u, a))
-		mesh.Add(c)
+	}
+	for i := 1; i < sets; i++ {
+		for _, particle := range particles[:n] {
+			particle.X += rng.NormFloat64() * 0.01
+			particle.Y += rng.NormFloat64() * 0.01
+			particle.Z += rng.NormFloat64() * 0.01
+			particle.T = float64(i)
+			particles = append(particles, particle)
+		}
 	}
 
-	// create a rendering context
-	context := gl.NewContext(width*scale, height*scale)
-	context.ClearColorBufferWith(gl.Black)
+	var getEntropy GetEntropy = QuaternionUnitaryMetric
+	const epochs = 256
+	for s := 0; s < epochs; s++ {
+		fmt.Println("epcoh:", s)
 
-	// create transformation matrix and light direction
-	aspect := float64(width) / float64(height)
-	matrix := gl.LookAt(eye, center, up).Perspective(fovy, aspect, near, far)
+		var optimizer Optimizer = &MinOptimizer{Min: math.MaxFloat64}
+		if *FlagMax {
+			optimizer = &MaxOptimizer{Max: -math.MaxFloat64}
+		} else if *FlagConstance {
+			optimizer = &ConstanceOptimizer{Min: math.MaxFloat64}
+		}
 
-	// render
-	shader := gl.NewPhongShader(matrix, light, eye)
-	shader.ObjectColor = objectColor
-	context.Shader = shader
-	start := time.Now()
-	context.DrawMesh(mesh)
-	fmt.Println(time.Since(start))
+		length := len(particles)
 
-	// downsample image for antialiasing
-	image := context.Image()
-	image = resize.Resize(width, height, image, resize.Bilinear)
+		current := 0.0
+		entropy := getEntropy(particles)
+		for _, value := range entropy {
+			current += -value
+		}
 
-	// save image
-	gl.SavePNG("out.png", image)
+		saved, best := make([]Particle, n), make([]Particle, n)
+		index := 0
+		for i := length - n; i < length; i++ {
+			saved[index] = particles[i]
+			best[index] = particles[i]
+			index++
+		}
+		for s := 0; s < 128; s++ {
+			index := 0
+			for i := length - n; i < length; i++ {
+				particles[i].T += rng.NormFloat64() * 0.01
+				particles[i].X += rng.NormFloat64() * 0.01
+				particles[i].Y += rng.NormFloat64() * 0.01
+				particles[i].Z += rng.NormFloat64() * 0.01
+				index++
+			}
+			entropy := getEntropy(particles)
+			index, sum := 0, 0.0
+			for _, value := range entropy {
+				sum += -value
+			}
+			//fmt.Println(s, "entropy:", sum)
+			if optimizer.Optimize(current, sum) {
+				index := 0
+				for i := length - n; i < length; i++ {
+					best[index] = particles[i]
+					index++
+				}
+			}
+			index = 0
+			for i := length - n; i < length; i++ {
+				particles[i] = saved[index]
+				index++
+			}
+		}
+
+		index = 0
+		for i := length - n; i < length; i++ {
+			particles[i] = best[index]
+			index++
+		}
+		for i := length - n; i < length; i++ {
+			particle := particles[i]
+			particle.T++
+			particles = append(particles, particle)
+		}
+	}
+	for i := range particles {
+		particles[i].I = i
+	}
+	nearest := make([]map[int]int, len(particles))
+	sum := func() {
+		for i := range particles[:len(particles)-1] {
+			n := nearest[particles[i].I]
+			if n == nil {
+				n = make(map[int]int)
+				nearest[particles[i].I] = n
+			}
+			n[particles[i+1].I]++
+		}
+	}
+	sort.Slice(particles, func(i, j int) bool {
+		return particles[i].T < particles[j].T
+	})
+	sum()
+	sort.Slice(particles, func(i, j int) bool {
+		return particles[i].X < particles[j].X
+	})
+	sum()
+	sort.Slice(particles, func(i, j int) bool {
+		return particles[i].Y < particles[j].Y
+	})
+	sum()
+	sort.Slice(particles, func(i, j int) bool {
+		return particles[i].Z < particles[j].Z
+	})
+	sum()
+	sort.Slice(particles, func(i, j int) bool {
+		return particles[i].T < particles[j].T
+	})
+
+	register := make([]Particle, 4)
+	for i := 0; i < 4; i++ {
+		register[i] = particles[i]
+	}
+	images := make([]*image.Paletted, epochs)
+	index := 0
+	for s := 0; s < epochs; s++ {
+		for j := 0; j < 4; j++ {
+			particle := register[j]
+			max, i := 0, 0
+			for key, value := range nearest[particle.I] {
+				if value > max {
+					max = value
+					i = key
+				}
+			}
+			_ = i
+			register[particles[index].I%4] = particles[index]
+			index++
+		}
+		mesh := gl.NewEmptyMesh()
+		for _, particle := range register {
+			var x, y, z float64
+			x = particle.X
+			y = particle.Y
+			z = particle.Z
+			p := gl.Vector{X: x, Y: y, Z: z}.MulScalar(4)
+			s := gl.V(0.2, 0.2, 0.2)
+			u := gl.RandomUnitVector()
+			a := rand.Float64() * 2 * math.Pi
+			c := gl.NewCube()
+			c.Transform(gl.Orient(p, s, u, a))
+			mesh.Add(c)
+		}
+
+		// create a rendering context
+		context := gl.NewContext(width*scale, height*scale)
+		context.ClearColorBufferWith(gl.Black)
+
+		// create transformation matrix and light direction
+		aspect := float64(width) / float64(height)
+		matrix := gl.LookAt(eye, center, up).Perspective(fovy, aspect, near, far)
+
+		// render
+		shader := gl.NewPhongShader(matrix, light, eye)
+		shader.ObjectColor = objectColor
+		context.Shader = shader
+		start := time.Now()
+		context.DrawMesh(mesh)
+		fmt.Println(time.Since(start))
+
+		// downsample image for antialiasing
+		c := context.Image()
+		c = resize.Resize(width, height, c, resize.Bilinear)
+
+		opts := gif.Options{
+			NumColors: 256,
+			Drawer:    drw.FloydSteinberg,
+		}
+		bounds := c.Bounds()
+
+		paletted := image.NewPaletted(bounds, palette.Plan9[:opts.NumColors])
+		if opts.Quantizer != nil {
+			paletted.Palette = opts.Quantizer.Quantize(make(color.Palette, 0, opts.NumColors), c)
+		}
+		opts.Drawer.Draw(paletted, bounds, c, image.Point{})
+
+		images[s] = paletted
+	}
+
+	animation := &gif.GIF{}
+	for _, paletted := range images {
+		animation.Image = append(animation.Image, paletted)
+		animation.Delay = append(animation.Delay, 0)
+	}
+
+	filename := "quad.gif"
+	f, _ := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE, 0600)
+	defer f.Close()
+	gif.EncodeAll(f, animation)
 }
 
 func main() {
@@ -248,7 +441,7 @@ func main() {
 	flag.Parse()
 
 	if *FlagQuaternion {
-		QuaternionMode()
+		QuaternionMode(rng)
 		return
 	}
 
