@@ -12,6 +12,7 @@ import (
 
 	"github.com/pointlander/pagerank"
 	"gonum.org/v1/gonum/mat"
+	"gonum.org/v1/gonum/num/quat"
 	"gonum.org/v1/gonum/stat"
 )
 
@@ -589,6 +590,116 @@ func ComplexSub(m ComplexMatrix, n ComplexMatrix) ComplexMatrix {
 	}
 	for i, value := range m.Data {
 		o.Data = append(o.Data, value-n.Data[i%lenb])
+	}
+	return o
+}
+
+func qDot(X, Y []quat.Number) quat.Number {
+	var sum quat.Number
+	for i, x := range X {
+		sum = quat.Add(sum, quat.Mul(x, Y[i]))
+	}
+	return sum
+}
+
+// QMatrix is a quaternion matrix
+type QMatrix struct {
+	Cols   int
+	Rows   int
+	Data   []quat.Number
+	States [][]quat.Number
+}
+
+// NewQMatrix creates a new quaternion matrix
+func NewQMatrix(states, cols, rows int) QMatrix {
+	m := QMatrix{
+		Cols: cols,
+		Rows: rows,
+		Data: make([]quat.Number, 0, cols*rows),
+	}
+	if states > 0 {
+		m.States = make([][]quat.Number, states)
+		for i := range m.States {
+			m.States[i] = make([]quat.Number, cols*rows)
+		}
+	}
+	return m
+}
+
+// NewQIdentityMatrix creates a new quaternion matrix
+func NewQIdentityMatrix(states, cols, rows int) QMatrix {
+	m := QMatrix{
+		Cols: cols,
+		Rows: rows,
+		Data: make([]quat.Number, 0, cols*rows),
+	}
+	for i := 0; i < cols; i++ {
+		for j := 0; j < rows; j++ {
+			if i == j {
+				m.Data = append(m.Data, quat.Number{Real: 1})
+			} else {
+				m.Data = append(m.Data, quat.Number{Real: 0})
+			}
+		}
+	}
+	if states > 0 {
+		m.States = make([][]quat.Number, states)
+		for i := range m.States {
+			m.States[i] = make([]quat.Number, cols*rows)
+		}
+	}
+	return m
+}
+
+// QMul multiplies two quaternion matrices
+func QMul(m QMatrix, n QMatrix) QMatrix {
+	if m.Cols != n.Cols {
+		panic(fmt.Errorf("%d != %d", m.Cols, n.Cols))
+	}
+	columns := m.Cols
+	o := QMatrix{
+		Cols: m.Rows,
+		Rows: n.Rows,
+		Data: make([]quat.Number, 0, m.Rows*n.Rows),
+	}
+	lenn, lenm := len(n.Data), len(m.Data)
+	for i := 0; i < lenn; i += columns {
+		nn := n.Data[i : i+columns]
+		for j := 0; j < lenm; j += columns {
+			mm := m.Data[j : j+columns]
+			o.Data = append(o.Data, qDot(mm, nn))
+		}
+	}
+	return o
+}
+
+// QConj computes the quaternion conjugate of a matrix
+func QConj(m QMatrix) QMatrix {
+	o := QMatrix{
+		Cols: m.Rows,
+		Rows: m.Cols,
+		Data: make([]quat.Number, 0, m.Cols*m.Rows),
+	}
+	for _, value := range m.Data {
+		o.Data = append(o.Data, quat.Conj(value))
+	}
+	return o
+}
+
+// QSub subtracts two quaternion matrices
+func QSub(m QMatrix, n QMatrix) QMatrix {
+	lena, lenb := len(m.Data), len(n.Data)
+	if lena%lenb != 0 {
+		panic(fmt.Errorf("%d %% %d != 0", lena, lenb))
+	}
+
+	o := QMatrix{
+		Cols: m.Cols,
+		Rows: m.Rows,
+		Data: make([]quat.Number, 0, m.Cols*m.Rows),
+	}
+	for i, value := range m.Data {
+		o.Data = append(o.Data, quat.Sub(value, n.Data[i%lenb]))
 	}
 	return o
 }
