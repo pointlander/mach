@@ -119,6 +119,9 @@ func SelfAttentionGetEntropy(particles []Particle) []float64 {
 	}
 	units := Normalize(distances)
 	embedding := SelfEntropy(units, units, units)
+	for key, value := range embedding {
+		embedding[key] = -value
+	}
 	return embedding
 }
 
@@ -161,7 +164,7 @@ func FFTGetEntropy(particles []Particle) []float64 {
 		value += .5
 		h += value * math.Log(value)
 	}
-	return []float64{h}
+	return []float64{-h}
 }
 
 // UnitaryMetric is the unitary metrix
@@ -293,7 +296,7 @@ func QuaternionMode(rng *rand.Rand) {
 			entropy := getEntropy(particles)
 			index, sum := 0, 0.0
 			for _, value := range entropy {
-				sum += -value
+				sum += value
 			}
 			//fmt.Println(s, "entropy:", sum)
 			if optimizer.Optimize(current, sum) {
@@ -540,7 +543,7 @@ func main() {
 		current := 0.0
 		entropy := getEntropy(particles)
 		for _, value := range entropy {
-			current += -value
+			current += value
 		}
 
 		saved, best := make([]Particle, n), make([]Particle, n)
@@ -560,7 +563,7 @@ func main() {
 			entropy := getEntropy(particles)
 			index, sum := 0, 0.0
 			for _, value := range entropy {
-				sum += -value
+				sum += value
 			}
 			//fmt.Println(s, "entropy:", sum)
 			if optimizer.Optimize(current, sum) {
