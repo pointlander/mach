@@ -563,11 +563,26 @@ func ComplexMul(m ComplexMatrix, n ComplexMatrix) ComplexMatrix {
 	return o
 }
 
-// ComplexConj computes the complex conjugate of a matrix
-func ComplexConj(m ComplexMatrix) ComplexMatrix {
+// ComplexT tramsposes a complex matrix
+func ComplexT(m ComplexMatrix) ComplexMatrix {
 	o := ComplexMatrix{
 		Cols: m.Rows,
 		Rows: m.Cols,
+		Data: make([]complex128, 0, m.Cols*m.Rows),
+	}
+	for i := 0; i < m.Cols; i++ {
+		for j := 0; j < m.Rows; j++ {
+			o.Data = append(o.Data, m.Data[j*m.Cols+i])
+		}
+	}
+	return o
+}
+
+// ComplexConj computes the complex conjugate of a matrix
+func ComplexConj(m ComplexMatrix) ComplexMatrix {
+	o := ComplexMatrix{
+		Cols: m.Cols,
+		Rows: m.Rows,
 		Data: make([]complex128, 0, m.Cols*m.Rows),
 	}
 	for _, value := range m.Data {
@@ -668,6 +683,21 @@ func QMul(m QMatrix, n QMatrix) QMatrix {
 		for j := 0; j < lenm; j += columns {
 			mm := m.Data[j : j+columns]
 			o.Data = append(o.Data, qDot(mm, nn))
+		}
+	}
+	return o
+}
+
+// QT tramsposes a quaternion matrix
+func QT(m QMatrix) QMatrix {
+	o := QMatrix{
+		Cols: m.Rows,
+		Rows: m.Cols,
+		Data: make([]quat.Number, 0, m.Cols*m.Rows),
+	}
+	for i := 0; i < m.Cols; i++ {
+		for j := 0; j < m.Rows; j++ {
+			o.Data = append(o.Data, m.Data[j*m.Cols+i])
 		}
 	}
 	return o

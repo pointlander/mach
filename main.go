@@ -177,7 +177,7 @@ func UnitaryMetric(particles []Particle) []float64 {
 			distances.Data = append(distances.Data, d)
 		}
 	}
-	metric := ComplexSub(ComplexMul(distances, ComplexConj(distances)), NewComplexIdentityMatrix(0, len(particles), len(particles)))
+	metric := ComplexSub(ComplexMul(distances, ComplexConj(ComplexT(distances))), NewComplexIdentityMatrix(0, len(particles), len(particles)))
 	total := 0.0
 	for _, value := range metric.Data {
 		total += cmplx.Abs(value)
@@ -200,7 +200,7 @@ func QuaternionUnitaryMetric(particles []Particle) []float64 {
 			distances.Data = append(distances.Data, d)
 		}
 	}
-	metric := QSub(QMul(distances, QConj(distances)), NewQIdentityMatrix(0, len(particles), len(particles)))
+	metric := QSub(QMul(distances, QConj(QT(distances))), NewQIdentityMatrix(0, len(particles), len(particles)))
 	total := 0.0
 	for _, value := range metric.Data {
 		total += quat.Abs(value)
