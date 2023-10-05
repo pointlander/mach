@@ -320,6 +320,33 @@ func QuaternionMode(rng *rand.Rand) {
 			particles = append(particles, particle)
 		}
 	}
+
+	verse := NewMatrix(0, 4, len(particles))
+	for _, particle := range particles {
+		verse.Data = append(verse.Data, particle.X, particle.Y, particle.Z, particle.T)
+	}
+	verse = PCA(verse)
+	points := make(plotter.XYs, 0, len(particles))
+	for i := 0; i < len(particles); i++ {
+		points = append(points, plotter.XY{X: verse.Data[i*4], Y: verse.Data[i*4+1]})
+	}
+	p := plot.New()
+	p.Title.Text = "verse"
+	p.X.Label.Text = "x"
+	p.Y.Label.Text = "y"
+
+	scatter, err := plotter.NewScatter(points)
+	if err != nil {
+		panic(err)
+	}
+	scatter.GlyphStyle.Radius = vg.Length(3)
+	scatter.GlyphStyle.Shape = draw.CircleGlyph{}
+	p.Add(scatter)
+	err = p.Save(8*vg.Inch, 8*vg.Inch, "verse.png")
+	if err != nil {
+		panic(err)
+	}
+
 	for i := range particles {
 		particles[i].I = i
 	}
