@@ -236,20 +236,21 @@ func QuaternionMode(rng *rand.Rand) {
 		particles = make([]Particle, n)
 		for i := 0; i < n; i++ {
 			particles[i] = Particle{
-				X: rng.Float64(),
-				Y: rng.Float64(),
-				Z: rng.Float64(),
-				T: rng.Float64(),
+				X: rng.NormFloat64() * 0.01,
+				Y: rng.NormFloat64() * 0.01,
+				Z: rng.NormFloat64() * 0.01,
+				T: rng.NormFloat64() * 0.01,
 			}
 		}
-	}
-	for i := 1; i < sets; i++ {
-		for _, particle := range particles[:n] {
-			particle.X += rng.NormFloat64() * 0.01
-			particle.Y += rng.NormFloat64() * 0.01
-			particle.Z += rng.NormFloat64() * 0.01
-			particle.T = float64(i)
-			particles = append(particles, particle)
+	} else {
+		for i := 1; i < sets; i++ {
+			for _, particle := range particles[:n] {
+				particle.X += rng.NormFloat64() * 0.01
+				particle.Y += rng.NormFloat64() * 0.01
+				particle.Z += rng.NormFloat64() * 0.01
+				particle.T += rng.NormFloat64() * 0.01
+				particles = append(particles, particle)
+			}
 		}
 	}
 
