@@ -201,11 +201,11 @@ func QuaternionUnitaryMetric(particles []Particle) []float64 {
 		}
 	}
 	metric := QSub(QMul(distances, QConj(QT(distances))), NewQIdentityMatrix(0, len(particles), len(particles)))
-	total := 0.0
+	total := quat.Number{}
 	for _, value := range metric.Data {
-		total += quat.Abs(value)
+		total = quat.Add(total, value)
 	}
-	return []float64{total}
+	return []float64{quat.Abs(total)}
 }
 
 const (
