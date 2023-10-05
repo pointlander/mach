@@ -325,7 +325,9 @@ func QuaternionMode(rng *rand.Rand) {
 	for _, particle := range particles {
 		verse.Data = append(verse.Data, particle.X, particle.Y, particle.Z, particle.T)
 	}
-	verse = PCA(verse)
+	verse, projection := PCA(verse)
+	r, c := projection.Dims()
+	fmt.Println(r, c, projection.RawMatrix().Data)
 	points := make(plotter.XYs, 0, len(particles))
 	for i := 0; i < len(particles); i++ {
 		points = append(points, plotter.XY{X: verse.Data[i*4], Y: verse.Data[i*4+1]})

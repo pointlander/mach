@@ -373,7 +373,7 @@ func PageRank(m Matrix) Matrix {
 }
 
 // PCA computes the principal component analysis of the matrix
-func PCA(m Matrix) Matrix {
+func PCA(m Matrix) (Matrix, *mat.Dense) {
 	o := Matrix{
 		Cols: m.Cols,
 		Rows: m.Rows,
@@ -398,7 +398,7 @@ func PCA(m Matrix) Matrix {
 			o.Data = append(o.Data, projection.At(i, j))
 		}
 	}
-	return o
+	return o, &vector
 }
 
 // SlowSelfEntropy computes the slowself entropy of Q, K, V
