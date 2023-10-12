@@ -284,6 +284,7 @@ func QuaternionMode(rng *rand.Rand) {
 			best[index] = particles[i]
 			index++
 		}
+		d := make(plotter.Values, 0, 8)
 		for s := 0; s < 128; s++ {
 			index := 0
 			for i := length - n; i < length; i++ {
@@ -298,6 +299,7 @@ func QuaternionMode(rng *rand.Rand) {
 			for _, value := range entropy {
 				sum += value
 			}
+			d = append(d, sum)
 			//fmt.Println(s, "current:", current, "entropy:", sum)
 			if optimizer.Optimize(current, sum) {
 				index := 0
@@ -310,6 +312,22 @@ func QuaternionMode(rng *rand.Rand) {
 			for i := length - n; i < length; i++ {
 				particles[i] = saved[index]
 				index++
+			}
+		}
+
+		if s == 0 {
+			p := plot.New()
+			p.Title.Text = "particle distribution"
+
+			histogram, err := plotter.NewHist(d, 10)
+			if err != nil {
+				panic(err)
+			}
+			p.Add(histogram)
+
+			err = p.Save(8*vg.Inch, 8*vg.Inch, "particle_distribution.png")
+			if err != nil {
+				panic(err)
 			}
 		}
 
