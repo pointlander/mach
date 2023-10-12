@@ -274,7 +274,7 @@ func QuaternionMode(rng *rand.Rand) {
 		current := 0.0
 		entropy := getEntropy(particles)
 		for _, value := range entropy {
-			current += -value
+			current += value
 		}
 
 		saved, best := make([]Particle, n), make([]Particle, n)
@@ -298,7 +298,7 @@ func QuaternionMode(rng *rand.Rand) {
 			for _, value := range entropy {
 				sum += value
 			}
-			//fmt.Println(s, "entropy:", sum)
+			//fmt.Println(s, "current:", current, "entropy:", sum)
 			if optimizer.Optimize(current, sum) {
 				index := 0
 				for i := length - n; i < length; i++ {
