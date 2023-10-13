@@ -38,6 +38,8 @@ var (
 	FlagMax = flag.Bool("max", false, "maximize entropy")
 	// FlagConstance constant entropy
 	FlagConstance = flag.Bool("const", false, "constant entropy")
+	// FlagAverage is the average mode
+	FlagAverage = flag.Bool("average", false, "average mode")
 	// FlagN is the number of particles
 	FlagN = flag.Int("n", 0, "number of particles")
 	// FlagFFT is the fft mode
@@ -340,9 +342,34 @@ func QuaternionMode(rng *rand.Rand) {
 		}
 
 		best := []Particle{}
-		for _, sample := range samples {
-			if optimizer.Optimize(current, sample.Cost) {
-				best = sample.Sample
+		if *FlagAverage {
+			sort.Slice(samples, func(i, j int) bool {
+				return samples[i].Cost < samples[j].Cost
+			})
+			min, index := math.MaxFloat64, 0
+			for i := 0; i < 128-9; i += 9 {
+				mean, count := 0.0, 0.0
+				for j := i; j < i+9; j++ {
+					mean += samples[j].Cost
+					count++
+				}
+				mean /= count
+				stddev := 0.0
+				for j := 0; j < i+9; j++ {
+					diff := mean - samples[j].Cost
+					stddev += diff * diff
+				}
+				stddev = math.Sqrt(stddev / count)
+				if stddev < min {
+					min, index = stddev, i+4
+				}
+			}
+			best = samples[index].Sample
+		} else {
+			for _, sample := range samples {
+				if optimizer.Optimize(current, sample.Cost) {
+					best = sample.Sample
+				}
 			}
 		}
 
