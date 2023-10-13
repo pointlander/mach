@@ -347,7 +347,7 @@ func QuaternionMode(rng *rand.Rand) {
 				return samples[i].Cost < samples[j].Cost
 			})
 			min, index := math.MaxFloat64, 0
-			for i := 0; i < 128-9; i += 9 {
+			for i := 0; i < 128-9; i++ {
 				mean, count := 0.0, 0.0
 				for j := i; j < i+9; j++ {
 					mean += samples[j].Cost
@@ -355,7 +355,7 @@ func QuaternionMode(rng *rand.Rand) {
 				}
 				mean /= count
 				stddev := 0.0
-				for j := 0; j < i+9; j++ {
+				for j := i; j < i+9; j++ {
 					diff := mean - samples[j].Cost
 					stddev += diff * diff
 				}
