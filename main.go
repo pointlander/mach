@@ -277,14 +277,20 @@ func QuaternionMode(rng *rand.Rand) {
 			current += value
 		}
 
-		saved, best := make([]Particle, n), make([]Particle, n)
+		saved := make([]Particle, n)
 		index := 0
 		for i := length - n; i < length; i++ {
 			saved[index] = particles[i]
-			best[index] = particles[i]
 			index++
 		}
-		d := make(plotter.Values, 0, 8)
+		type Sample struct {
+			Sample []Particle
+			Cost   float64
+		}
+		samples := make([]Sample, 128)
+		for i := range samples {
+			samples[i].Sample = make([]Particle, n)
+		}
 		for s := 0; s < 128; s++ {
 			index := 0
 			for i := length - n; i < length; i++ {
@@ -299,15 +305,13 @@ func QuaternionMode(rng *rand.Rand) {
 			for _, value := range entropy {
 				sum += value
 			}
-			d = append(d, sum)
 			//fmt.Println(s, "current:", current, "entropy:", sum)
-			if optimizer.Optimize(current, sum) {
-				index := 0
-				for i := length - n; i < length; i++ {
-					best[index] = particles[i]
-					index++
-				}
+			index = 0
+			for i := length - n; i < length; i++ {
+				samples[s].Sample[index] = particles[i]
+				index++
 			}
+			samples[s].Cost = sum
 			index = 0
 			for i := length - n; i < length; i++ {
 				particles[i] = saved[index]
@@ -316,6 +320,10 @@ func QuaternionMode(rng *rand.Rand) {
 		}
 
 		if s == 0 {
+			d := make(plotter.Values, 0, 8)
+			for _, sample := range samples {
+				d = append(d, sample.Cost)
+			}
 			p := plot.New()
 			p.Title.Text = "particle distribution"
 
@@ -328,6 +336,13 @@ func QuaternionMode(rng *rand.Rand) {
 			err = p.Save(8*vg.Inch, 8*vg.Inch, "particle_distribution.png")
 			if err != nil {
 				panic(err)
+			}
+		}
+
+		best := []Particle{}
+		for _, sample := range samples {
+			if optimizer.Optimize(current, sample.Cost) {
+				best = sample.Sample
 			}
 		}
 
