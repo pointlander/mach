@@ -36,12 +36,14 @@ var (
 	FlagMin = flag.Bool("min", false, "minimize entropy")
 	// FlagMax maximize entropy
 	FlagMax = flag.Bool("max", false, "maximize entropy")
-	// FlagConstance constant entropy
-	FlagConstance = flag.Bool("const", false, "constant entropy")
+	// FlagConstant constant entropy
+	FlagConstant = flag.Bool("const", false, "constant entropy")
 	// FlagAverage is the average mode
 	FlagAverage = flag.Bool("average", false, "average mode")
 	// FlagN is the number of particles
 	FlagN = flag.Int("n", 0, "number of particles")
+	// Flag3D is 3d plotting mode
+	Flag3D = flag.Bool("3d", false, "3d plotting mode")
 	// FlagFFT is the fft mode
 	FlagFFT = flag.Bool("fft", false, "fft mode")
 	// FlagUnitary is the unitary mode
@@ -89,13 +91,13 @@ func (o *MaxOptimizer) Optimize(current, next float64) bool {
 	return false
 }
 
-// ConstanceOptimizer is a constance optimizer
-type ConstanceOptimizer struct {
+// ConstantOptimizer is a constant optimizer
+type ConstantOptimizer struct {
 	Min float64
 }
 
-// Optimize is a constance optimizer
-func (o *ConstanceOptimizer) Optimize(current, next float64) bool {
+// Optimize is a constant optimizer
+func (o *ConstantOptimizer) Optimize(current, next float64) bool {
 	if math.Abs(next-current) < o.Min {
 		o.Min = math.Abs(next - current)
 		return true
@@ -267,8 +269,8 @@ func QuaternionMode(rng *rand.Rand) {
 		var optimizer Optimizer = &MinOptimizer{Min: math.MaxFloat64}
 		if *FlagMax {
 			optimizer = &MaxOptimizer{Max: -math.MaxFloat64}
-		} else if *FlagConstance {
-			optimizer = &ConstanceOptimizer{Min: math.MaxFloat64}
+		} else if *FlagConstant {
+			optimizer = &ConstantOptimizer{Min: math.MaxFloat64}
 		}
 
 		length := len(particles)
@@ -411,6 +413,10 @@ func QuaternionMode(rng *rand.Rand) {
 	err = p.Save(8*vg.Inch, 8*vg.Inch, "verse.png")
 	if err != nil {
 		panic(err)
+	}
+
+	if !*Flag3D {
+		return
 	}
 
 	for i := range particles {
@@ -582,8 +588,8 @@ func main() {
 		var optimizer Optimizer = &MinOptimizer{Min: math.MaxFloat64}
 		if *FlagMax {
 			optimizer = &MaxOptimizer{Max: -math.MaxFloat64}
-		} else if *FlagConstance {
-			optimizer = &ConstanceOptimizer{Min: math.MaxFloat64}
+		} else if *FlagConstant {
+			optimizer = &ConstantOptimizer{Min: math.MaxFloat64}
 		}
 
 		sum, avg := make([]float64, n), make([]float64, n)
@@ -699,7 +705,7 @@ func main() {
 		filename = "min.gif"
 	} else if *FlagMax {
 		filename = "max.gif"
-	} else if *FlagConstance {
+	} else if *FlagConstant {
 		filename = "const.gif"
 	}
 	f, _ := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE, 0600)
