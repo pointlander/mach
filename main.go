@@ -349,6 +349,7 @@ func QuaternionMode(rng *rand.Rand) {
 				return samples[i].Cost < samples[j].Cost
 			})
 			min, index := math.MaxFloat64, 0
+			points := make(plotter.XYs, 0, len(particles))
 			for i := 0; i < 128-9; i++ {
 				mean, count := 0.0, 0.0
 				for j := i; j < i+9; j++ {
@@ -365,8 +366,28 @@ func QuaternionMode(rng *rand.Rand) {
 				if stddev < min {
 					min, index = stddev, i+4
 				}
+				points = append(points, plotter.XY{X: float64(i), Y: 1 / stddev})
 			}
 			best = samples[index].Sample
+			if s == 0 || s == epochs-1 {
+				p := plot.New()
+				p.Title.Text = "verse"
+				p.X.Label.Text = "x"
+				p.Y.Label.Text = "y"
+
+				scatter, err := plotter.NewScatter(points)
+				if err != nil {
+					panic(err)
+				}
+				scatter.GlyphStyle.Radius = vg.Length(3)
+				scatter.GlyphStyle.Shape = draw.CircleGlyph{}
+				p.Add(scatter)
+
+				err = p.Save(8*vg.Inch, 8*vg.Inch, fmt.Sprintf("spectrum_%d.png", s))
+				if err != nil {
+					panic(err)
+				}
+			}
 		} else {
 			for _, sample := range samples {
 				if optimizer.Optimize(current, sample.Cost) {
