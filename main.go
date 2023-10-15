@@ -105,7 +105,12 @@ func (o *ConstantOptimizer) Optimize(current, next float64) bool {
 	return false
 }
 
-const sets = 8
+const (
+	sets    = 8
+	epochs  = 256
+	window  = 9
+	Samples = 128
+)
 
 var n = 4
 
@@ -262,7 +267,6 @@ func QuaternionMode(rng *rand.Rand) {
 	}
 
 	var getEntropy GetEntropy = QuaternionUnitaryMetric
-	const epochs = 256
 	for s := 0; s < epochs; s++ {
 		fmt.Println("epcoh:", s)
 
@@ -291,11 +295,11 @@ func QuaternionMode(rng *rand.Rand) {
 			Sample []Particle
 			Cost   float64
 		}
-		samples := make([]Sample, 128)
+		samples := make([]Sample, Samples)
 		for i := range samples {
 			samples[i].Sample = make([]Particle, n)
 		}
-		for s := 0; s < 128; s++ {
+		for s := 0; s < Samples; s++ {
 			index := 0
 			for i := length - n; i < length; i++ {
 				particles[i].T += rng.NormFloat64() * 0.01
@@ -350,21 +354,21 @@ func QuaternionMode(rng *rand.Rand) {
 			})
 			min, index := math.MaxFloat64, 0
 			points := make(plotter.XYs, 0, len(particles))
-			for i := 0; i < 128-9; i++ {
+			for i := 0; i < Samples-window; i++ {
 				mean, count := 0.0, 0.0
-				for j := i; j < i+9; j++ {
+				for j := i; j < i+window; j++ {
 					mean += samples[j].Cost
 					count++
 				}
 				mean /= count
 				stddev := 0.0
-				for j := i; j < i+9; j++ {
+				for j := i; j < i+window; j++ {
 					diff := mean - samples[j].Cost
 					stddev += diff * diff
 				}
 				stddev = math.Sqrt(stddev / count)
 				if stddev < min {
-					min, index = stddev, i+4
+					min, index = stddev, i+window/2+1
 				}
 				points = append(points, plotter.XY{X: float64(i), Y: 1 / stddev})
 			}
