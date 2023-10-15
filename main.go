@@ -323,7 +323,7 @@ func QuaternionMode(rng *rand.Rand) {
 			}
 		}
 
-		if s == 0 {
+		if s == 0 || s == epochs-1 {
 			d := make(plotter.Values, 0, 8)
 			for _, sample := range samples {
 				d = append(d, sample.Cost)
@@ -337,7 +337,7 @@ func QuaternionMode(rng *rand.Rand) {
 			}
 			p.Add(histogram)
 
-			err = p.Save(8*vg.Inch, 8*vg.Inch, "particle_distribution.png")
+			err = p.Save(8*vg.Inch, 8*vg.Inch, fmt.Sprintf("particle_distribution_%d.png", s))
 			if err != nil {
 				panic(err)
 			}
@@ -410,7 +410,7 @@ func QuaternionMode(rng *rand.Rand) {
 	scatter.GlyphStyle.Radius = vg.Length(3)
 	scatter.GlyphStyle.Shape = draw.CircleGlyph{}
 	p.Add(scatter)
-	err = p.Save(8*vg.Inch, 8*vg.Inch, "verse.png")
+	err = p.Save(16*vg.Inch, 16*vg.Inch, "verse.png")
 	if err != nil {
 		panic(err)
 	}
