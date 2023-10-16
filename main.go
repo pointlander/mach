@@ -210,11 +210,16 @@ func QuaternionUnitaryMetric(particles []Particle) []float64 {
 		}
 	}
 	metric := QSub(QMul(distances, QConj(QT(distances))), NewQIdentityMatrix(0, len(particles), len(particles)))
-	total := quat.Number{}
-	for _, value := range metric.Data {
-		total = quat.Add(total, value)
+
+	totals := make([]float64, 0, len(particles))
+	for i := range particles {
+		total := quat.Number{}
+		for _, value := range metric.Data[i*len(particles) : (i+1)*len(particles)] {
+			total = quat.Add(total, value)
+		}
+		totals = append(totals, quat.Abs(total))
 	}
-	return []float64{quat.Abs(total)}
+	return totals
 }
 
 const (
@@ -280,8 +285,8 @@ func QuaternionMode(rng *rand.Rand) {
 		length := len(particles)
 
 		current := 0.0
-		entropy := getEntropy(particles)
-		for _, value := range entropy {
+		currents := getEntropy(particles)
+		for _, value := range currents {
 			current += value
 		}
 
@@ -299,6 +304,7 @@ func QuaternionMode(rng *rand.Rand) {
 		for i := range samples {
 			samples[i].Sample = make([]Particle, n)
 		}
+		gtlt := make([]float64, Samples)
 		for s := 0; s < Samples; s++ {
 			index := 0
 			for i := length - n; i < length; i++ {
@@ -310,7 +316,12 @@ func QuaternionMode(rng *rand.Rand) {
 			}
 			entropy := getEntropy(particles)
 			index, sum := 0, 0.0
-			for _, value := range entropy {
+			for i, value := range entropy {
+				if value > currents[i] {
+					gtlt[s]++
+				} else {
+					gtlt[s]--
+				}
 				sum += value
 			}
 			//fmt.Println(s, "current:", current, "entropy:", sum)
@@ -342,6 +353,24 @@ func QuaternionMode(rng *rand.Rand) {
 			p.Add(histogram)
 
 			err = p.Save(8*vg.Inch, 8*vg.Inch, fmt.Sprintf("particle_distribution_%d.png", s))
+			if err != nil {
+				panic(err)
+			}
+
+			d = make(plotter.Values, 0, 8)
+			for _, sample := range gtlt {
+				d = append(d, sample)
+			}
+			p = plot.New()
+			p.Title.Text = "gtlt distribution"
+
+			histogram, err = plotter.NewHist(d, 10)
+			if err != nil {
+				panic(err)
+			}
+			p.Add(histogram)
+
+			err = p.Save(8*vg.Inch, 8*vg.Inch, fmt.Sprintf("gtlt_distribution_%d.png", s))
 			if err != nil {
 				panic(err)
 			}
