@@ -297,8 +297,9 @@ func QuaternionMode(rng *rand.Rand) {
 			index++
 		}
 		type Sample struct {
-			Sample []Particle
-			Cost   float64
+			Sample  []Particle
+			Entropy []float64
+			Cost    float64
 		}
 		samples := make([]Sample, Samples)
 		for i := range samples {
@@ -330,6 +331,7 @@ func QuaternionMode(rng *rand.Rand) {
 				samples[s].Sample[index] = particles[i]
 				index++
 			}
+			samples[s].Entropy = entropy
 			samples[s].Cost = sum
 			index = 0
 			for i := length - n; i < length; i++ {
