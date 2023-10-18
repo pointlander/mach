@@ -40,6 +40,8 @@ var (
 	FlagConstant = flag.Bool("const", false, "constant entropy")
 	// FlagAverage is the average mode
 	FlagAverage = flag.Bool("average", false, "average mode")
+	// FlagAverageEverett is the average everett mode
+	FlagEverett = flag.Bool("everett", false, "average everett mode")
 	// FlagN is the number of particles
 	FlagN = flag.Int("n", 0, "number of particles")
 	// Flag3D is 3d plotting mode
@@ -379,7 +381,32 @@ func QuaternionMode(rng *rand.Rand) {
 		}
 
 		best := []Particle{}
-		if *FlagAverage {
+		if *FlagEverett {
+			for k := 0; k < n; k++ {
+				sort.Slice(samples, func(i, j int) bool {
+					return samples[i].Entropy[k] < samples[j].Entropy[k]
+				})
+				min, index := math.MaxFloat64, 0
+				for i := 0; i < Samples-window; i++ {
+					mean, count := 0.0, 0.0
+					for j := i; j < i+window; j++ {
+						mean += samples[j].Entropy[k]
+						count++
+					}
+					mean /= count
+					stddev := 0.0
+					for j := i; j < i+window; j++ {
+						diff := mean - samples[j].Entropy[k]
+						stddev += diff * diff
+					}
+					stddev = math.Sqrt(stddev / count)
+					if stddev < min {
+						min, index = stddev, i+window/2+1
+					}
+				}
+				best = append(best, samples[index].Sample[k])
+			}
+		} else if *FlagAverage {
 			sort.Slice(samples, func(i, j int) bool {
 				return samples[i].Cost < samples[j].Cost
 			})
