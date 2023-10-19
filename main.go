@@ -382,6 +382,7 @@ func QuaternionMode(rng *rand.Rand) {
 
 		best := []Particle{}
 		if *FlagEverett {
+			points := make(plotter.XYs, 0, n)
 			for k := 0; k < n; k++ {
 				sort.Slice(samples, func(i, j int) bool {
 					return samples[i].Entropy[k] < samples[j].Entropy[k]
@@ -404,7 +405,27 @@ func QuaternionMode(rng *rand.Rand) {
 						min, index = stddev, i+window/2+1
 					}
 				}
+				points = append(points, plotter.XY{X: float64(k), Y: 1 / min})
 				best = append(best, samples[index].Sample[k])
+			}
+			if s == 0 || s == epochs-1 {
+				p := plot.New()
+				p.Title.Text = "spectrum"
+				p.X.Label.Text = "x"
+				p.Y.Label.Text = "y"
+
+				scatter, err := plotter.NewScatter(points)
+				if err != nil {
+					panic(err)
+				}
+				scatter.GlyphStyle.Radius = vg.Length(3)
+				scatter.GlyphStyle.Shape = draw.CircleGlyph{}
+				p.Add(scatter)
+
+				err = p.Save(8*vg.Inch, 8*vg.Inch, fmt.Sprintf("spectrum_%d.png", s))
+				if err != nil {
+					panic(err)
+				}
 			}
 		} else if *FlagAverage {
 			sort.Slice(samples, func(i, j int) bool {
@@ -433,7 +454,7 @@ func QuaternionMode(rng *rand.Rand) {
 			best = samples[index].Sample
 			if s == 0 || s == epochs-1 {
 				p := plot.New()
-				p.Title.Text = "verse"
+				p.Title.Text = "spectrum"
 				p.X.Label.Text = "x"
 				p.Y.Label.Text = "y"
 
